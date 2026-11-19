@@ -535,6 +535,54 @@ class RegroupTests(unittest.TestCase):
                 self.assertFalse(space_tags.regroup())
 
 
+class AutoRegroupTests(unittest.TestCase):
+    RULES = '[[rule]]\ntag = "work"\nlabels = ["gamma"]\n'
+
+    def run_main(self, fx, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(space_tags.main(argv), 0)
+        return [
+            json.loads(line)
+            for line in out.getvalue().splitlines()
+            if line.startswith("{")
+        ]
+
+    def test_auto_regroup_defaults_off(self):
+        with Fixture() as fx:
+            fx.write("config.toml", self.RULES)
+            self.assertFalse(space_tags.load_config().auto_regroup)
+            self.assertEqual(self.run_main(fx, ["startup"]), [])
+
+    def test_startup_regroups_when_enabled(self):
+        with Fixture() as fx:
+            fx.write("config.toml", "auto_regroup = true\n" + self.RULES)
+            payloads = self.run_main(fx, ["startup"])
+            self.assertEqual(
+                [(p["method"], p["params"]) for p in payloads],
+                [("workspace.move_block", {"workspace_ids": ["w3", "w1", "w2"]})],
+            )
+
+    def test_workspace_created_regroups_regardless(self):
+        with Fixture() as fx:
+            fx.write("config.toml", self.RULES)
+            os.environ["HERDR_PLUGIN_CONTEXT_JSON"] = json.dumps(
+                {"workspace_id": "w3", "workspace_label": "gamma",
+                 "workspace_cwd": "/p/gamma"}
+            )
+            payloads = self.run_main(fx, ["workspace-created"])
+            self.assertEqual(
+                [p["method"] for p in payloads], ["workspace.move_block"]
+            )
+
+    def test_non_boolean_auto_regroup_warns_and_stays_off(self):
+        with Fixture() as fx:
+            fx.write("config.toml", 'auto_regroup = "yes"\n' + self.RULES)
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertFalse(space_tags.load_config().auto_regroup)
+            self.assertIn("auto_regroup", err.getvalue())
+
+
 class CommandTests(unittest.TestCase):
     def test_set_writes_a_token_and_the_manual_record(self):
         with Fixture() as fx:

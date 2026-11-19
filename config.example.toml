@@ -15,6 +15,10 @@ order = ["work", "personal", "home"]
 # sidebar reads as sections. Use "each" to label every tagged space.
 band = "first"
 
+# Regroup spaces by tag when Herdr starts and on "refresh tags", not only when
+# a space is created, renamed or tagged.
+auto_regroup = false
+
 # Length of the coloured rule under a group title, in characters. 0 disables
 # it. Keep it within the sidebar width; longer rules are clipped with an
 # ellipsis.

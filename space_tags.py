@@ -73,6 +73,7 @@ class PluginConfig(NamedTuple):
     rules: List[Rule]
     band: str = "first"
     border_width: int = DEFAULT_BORDER_WIDTH
+    auto_regroup: bool = False
 
 
 # --------------------------------------------------------------------- Herdr
@@ -233,6 +234,10 @@ def load_config() -> PluginConfig:
             )
         )
         border_width = DEFAULT_BORDER_WIDTH
+    auto_regroup = data.get("auto_regroup", False)
+    if not isinstance(auto_regroup, bool):
+        warn("config.toml: auto_regroup must be true or false; using false")
+        auto_regroup = False
     rules: List[Rule] = []
     for index, raw_rule in enumerate(raw_rules, 1):
         if not isinstance(raw_rule, dict):
@@ -248,7 +253,7 @@ def load_config() -> PluginConfig:
             warn("config.toml: rule {} has no labels or cwds".format(index))
             continue
         rules.append(Rule(tag, labels, cwds))
-    return PluginConfig(order, rules, band, border_width)
+    return PluginConfig(order, rules, band, border_width, auto_regroup)
 
 
 def match_rules(label: str, cwd: str, rules: Sequence[Rule]) -> Optional[str]:
@@ -819,6 +824,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return _reset_command(rest)
         if command in ("apply", "startup"):
             apply_all()
+            # Startup and apply otherwise only re-tag, leaving groups scattered.
+            if load_config().auto_regroup and regroup():
+                sync_bands()
             return 0
         if command == "regroup":
             changed = regroup()
