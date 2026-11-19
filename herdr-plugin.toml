@@ -58,6 +58,18 @@ title = "Space tags: refresh tags on open spaces"
 contexts = ["global"]
 command = ["python3", "space_tags.py", "apply"]
 
+[[actions]]
+id = "attention"
+title = "Space tags: show only agents that need attention"
+contexts = ["global"]
+command = ["python3", "space_tags.py", "attention"]
+
+[[actions]]
+id = "all-agents"
+title = "Space tags: show all agents"
+contexts = ["global"]
+command = ["python3", "space_tags.py", "all-agents"]
+
 [[panes]]
 id = "picker"
 title = "Tag space"

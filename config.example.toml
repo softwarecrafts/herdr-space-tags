@@ -19,6 +19,11 @@ band = "first"
 # a space is created, renamed or tagged.
 auto_regroup = false
 
+# "attention" narrows the sidebar agent list to blocked agents and finished
+# ones you haven't looked at, set again each time Herdr starts. The
+# "show all agents" action undoes it until the next start.
+agent_view = ""
+
 # Length of the coloured rule under a group title, in characters. 0 disables
 # it. Keep it within the sidebar width; longer rules are clipped with an
 # ellipsis.

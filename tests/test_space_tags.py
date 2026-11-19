@@ -583,6 +583,63 @@ class AutoRegroupTests(unittest.TestCase):
             self.assertIn("auto_regroup", err.getvalue())
 
 
+class AttentionViewTests(unittest.TestCase):
+    ATTENTION = {
+        "op": "any",
+        "filters": [
+            {"op": "eq", "field": "status", "value": "blocked"},
+            {
+                "op": "all",
+                "filters": [
+                    {"op": "eq", "field": "status", "value": "done"},
+                    {"op": "eq", "field": "seen", "value": False},
+                ],
+            },
+        ],
+    }
+
+    def payloads(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(space_tags.main(argv), 0)
+        return [
+            json.loads(line)
+            for line in out.getvalue().splitlines()
+            if line.startswith("{")
+        ]
+
+    def test_attention_sets_the_filtered_agent_view(self):
+        with Fixture():
+            [payload] = self.payloads(["attention"])
+            self.assertEqual(payload["method"], "agent.view.set")
+            self.assertEqual(payload["params"]["filter"], self.ATTENTION)
+            self.assertEqual(payload["params"]["sort"], [{"field": "attention"}])
+            self.assertEqual(payload["params"]["source"], space_tags.SOURCE)
+
+    def test_all_agents_clears_our_view(self):
+        with Fixture():
+            [payload] = self.payloads(["all-agents"])
+            self.assertEqual(payload["method"], "agent.view.clear")
+            self.assertEqual(payload["params"], {"source": space_tags.SOURCE})
+
+    def test_startup_sets_the_view_when_configured(self):
+        with Fixture() as fx:
+            fx.write("config.toml", 'agent_view = "attention"\n')
+            methods = [p["method"] for p in self.payloads(["startup"])]
+            self.assertEqual(methods, ["agent.view.set"])
+
+    def test_startup_leaves_the_agent_list_alone_by_default(self):
+        with Fixture():
+            self.assertEqual(self.payloads(["startup"]), [])
+
+    def test_unknown_agent_view_warns_and_is_ignored(self):
+        with Fixture() as fx:
+            fx.write("config.toml", 'agent_view = "loud"\n')
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(space_tags.load_config().agent_view, "")
+            self.assertIn("agent_view", err.getvalue())
+
+
 class CommandTests(unittest.TestCase):
     def test_set_writes_a_token_and_the_manual_record(self):
         with Fixture() as fx:

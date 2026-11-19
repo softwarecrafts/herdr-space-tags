@@ -74,6 +74,7 @@ class PluginConfig(NamedTuple):
     band: str = "first"
     border_width: int = DEFAULT_BORDER_WIDTH
     auto_regroup: bool = False
+    agent_view: str = ""
 
 
 # --------------------------------------------------------------------- Herdr
@@ -238,6 +239,10 @@ def load_config() -> PluginConfig:
     if not isinstance(auto_regroup, bool):
         warn("config.toml: auto_regroup must be true or false; using false")
         auto_regroup = False
+    agent_view = str(data.get("agent_view", "")).strip().lower()
+    if agent_view not in AGENT_VIEWS:
+        warn('config.toml: agent_view must be "attention" or ""; ignoring it')
+        agent_view = ""
     rules: List[Rule] = []
     for index, raw_rule in enumerate(raw_rules, 1):
         if not isinstance(raw_rule, dict):
@@ -253,7 +258,7 @@ def load_config() -> PluginConfig:
             warn("config.toml: rule {} has no labels or cwds".format(index))
             continue
         rules.append(Rule(tag, labels, cwds))
-    return PluginConfig(order, rules, band, border_width, auto_regroup)
+    return PluginConfig(order, rules, band, border_width, auto_regroup, agent_view)
 
 
 def match_rules(label: str, cwd: str, rules: Sequence[Rule]) -> Optional[str]:
@@ -533,6 +538,42 @@ def regroup() -> bool:
         return False
     socket_request("workspace.move_block", {"workspace_ids": desired})
     return True
+
+
+# --------------------------------------------------------------- agent view
+
+# Agents waiting on you, plus finished ones you haven't looked at yet.
+ATTENTION_FILTER = {
+    "op": "any",
+    "filters": [
+        {"op": "eq", "field": "status", "value": "blocked"},
+        {
+            "op": "all",
+            "filters": [
+                {"op": "eq", "field": "status", "value": "done"},
+                {"op": "eq", "field": "seen", "value": False},
+            ],
+        },
+    ],
+}
+AGENT_VIEWS = ("", "attention")
+
+
+def show_attention_agents() -> None:
+    """Narrow the sidebar agent list; the view is lost on server restart."""
+    socket_request(
+        "agent.view.set",
+        {
+            "source": SOURCE,
+            "label": "Needs attention",
+            "filter": ATTENTION_FILTER,
+            "sort": [{"field": "attention"}],
+        },
+    )
+
+
+def show_all_agents() -> None:
+    socket_request("agent.view.clear", {"source": SOURCE})
 
 
 # ------------------------------------------------------------------ tagging
@@ -825,8 +866,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if command in ("apply", "startup"):
             apply_all()
             # Startup and apply otherwise only re-tag, leaving groups scattered.
-            if load_config().auto_regroup and regroup():
+            config = load_config()
+            if config.auto_regroup and regroup():
                 sync_bands()
+            if command == "startup" and config.agent_view == "attention":
+                show_attention_agents()
+            return 0
+        if command == "attention":
+            show_attention_agents()
+            return 0
+        if command == "all-agents":
+            show_all_agents()
             return 0
         if command == "regroup":
             changed = regroup()
