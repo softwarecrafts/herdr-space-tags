@@ -127,18 +127,24 @@ def socket_request(method: str, params: dict) -> dict:
     socket_path = os.environ.get("HERDR_SOCKET_PATH")
     if not socket_path:
         raise SpaceTagsError("HERDR_SOCKET_PATH is not set")
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-        sock.connect(socket_path)
-        sock.sendall(json.dumps(request).encode() + b"\n")
-        buffer = b""
-        while not buffer.endswith(b"\n"):
-            chunk = sock.recv(65536)
-            if not chunk:
-                break
-            buffer += chunk
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.connect(socket_path)
+            sock.sendall(json.dumps(request).encode() + b"\n")
+            buffer = b""
+            while not buffer.endswith(b"\n"):
+                chunk = sock.recv(65536)
+                if not chunk:
+                    break
+                buffer += chunk
+    except OSError as exc:
+        raise SpaceTagsError("{}: {}".format(method, exc)) from exc
     if not buffer.strip():
         raise SpaceTagsError("{}: no response from the Herdr server".format(method))
-    response = json.loads(buffer.decode())
+    try:
+        response = json.loads(buffer.decode())
+    except ValueError as exc:
+        raise SpaceTagsError("{}: unreadable reply: {}".format(method, exc)) from exc
     if "error" in response:
         error = response["error"]
         message = error.get("message") if isinstance(error, dict) else str(error)

@@ -640,6 +640,24 @@ class AttentionViewTests(unittest.TestCase):
             self.assertIn("agent_view", err.getvalue())
 
 
+class SocketErrorTests(unittest.TestCase):
+    def test_unreachable_socket_is_a_clean_error(self):
+        with Fixture() as fx:
+            os.environ.pop("SPACE_TAGS_DRY_RUN")
+            os.environ["HERDR_SOCKET_PATH"] = str(fx.root / "missing.sock")
+            with self.assertRaises(space_tags.SpaceTagsError):
+                space_tags.socket_request("agent.view.clear", {})
+
+    def test_startup_with_no_server_fails_without_a_traceback(self):
+        with Fixture() as fx:
+            fx.write("config.toml", 'agent_view = "attention"\n')
+            os.environ.pop("SPACE_TAGS_DRY_RUN")
+            os.environ["HERDR_SOCKET_PATH"] = str(fx.root / "missing.sock")
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(space_tags.main(["startup"]), 1)
+            self.assertIn("agent.view.set", err.getvalue())
+
+
 class CommandTests(unittest.TestCase):
     def test_set_writes_a_token_and_the_manual_record(self):
         with Fixture() as fx:

@@ -18,8 +18,8 @@ pieces:
 
 ## Requirements
 
-- Herdr 0.9.0 or newer (workspace metadata tokens: 0.7.4, `workspace.move_block`:
-  0.8.0, sidebar value rules: 0.9.0). Linux and macOS only: grouping uses the
+- Herdr 0.9.3 or newer (workspace metadata tokens: 0.7.4, `workspace.move_block`:
+  0.8.0, sidebar value rules: 0.9.0, `agent.view.*`: 0.9.3). Linux and macOS only: grouping uses the
   Unix socket API directly, because `workspace.move_block` has no CLI wrapper.
 - Python 3.11+ (`python3` on `PATH`); the config file is read with `tomllib`.
 
